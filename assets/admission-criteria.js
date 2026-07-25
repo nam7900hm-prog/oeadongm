@@ -1,0 +1,70 @@
+(function () {
+  'use strict';
+  const SUBJECTS=['국어','영어','수학','과학','사회','도덕','기술가정','역사','미술','체육'];
+  const SEMESTERS=['2-1','2-2','3-1'];
+  const NON=['출석','봉사','인적성','면접'];
+  const KEYS={criteria:'odong-school-settings-v2',students:'odong-students-v2',results:'odong-results-v2',runs:'odong-calculation-runs-v2',config:'odong-config-v2'};
+  const id=x=>document.getElementById(x);
+  const num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch(error){console.error(error);return fallback}};
+  let criteria=read(KEYS.criteria,[]),editingId='';
+
+  function schoolData(){return read('odong-admission-project-v1',[])}
+  function createOptions(){
+    id('criteriaSemesters').innerHTML=SEMESTERS.map(x=>`<label><span class="check"><input type="checkbox" data-semester="${x}" checked> ${x}</span><input type="number" data-semester-weight="${x}" min="0" step="0.1" value="1" aria-label="${x} 가중치"></label>`).join('');
+    id('criteriaSubjects').innerHTML=SUBJECTS.map(x=>`<label><span class="check"><input type="checkbox" data-subject="${x}" checked> ${x}</span><input type="number" data-subject-weight="${x}" min="0" step="0.1" value="1" aria-label="${x} 가중치"></label>`).join('');
+    id('criteriaNonAcademic').innerHTML=`<table><thead><tr><th>영역</th><th>반영</th><th>입력만점</th><th>학교반영만점</th><th>가중치</th><th>계산방식</th></tr></thead><tbody>${NON.map(x=>`<tr><td>${x}</td><td><input type="checkbox" data-non="${x}"></td><td><input type="number" data-non-input="${x}" min="0.1" value="20"></td><td><input type="number" data-non-max="${x}" min="0" value="0"></td><td><input type="number" data-non-weight="${x}" min="0" step="0.1" value="1"></td><td><select data-non-method="${x}"><option>원점수 그대로 사용</option><option selected>자동 비율 환산</option><option>산출식 직접 입력</option></select></td></tr>`).join('')}</tbody></table>`;
+  }
+  function populateSchools(){
+    const source=schoolData();
+    const names=source.length?source.map(s=>s.name):[...id('preferredSchool').options].map(o=>o.value).filter(Boolean);
+    id('criteriaSchool').innerHTML='<option value="">학교 선택</option>'+[...new Set(names)].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  }
+  function populateDepartments(){
+    const school=schoolData().find(x=>x.name===id('criteriaSchool').value);
+    const values=String(school?.departments||'').split(/[,/\n]/).map(x=>x.trim()).filter(Boolean);
+    const previous=id('criteriaDepartment').value;
+    id('criteriaDepartment').innerHTML='<option value="전체">전체</option>'+[...new Set(values)].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    if([...id('criteriaDepartment').options].some(o=>o.value===previous))id('criteriaDepartment').value=previous;
+    loadSelectedCriteria();
+  }
+  function nextId(year){
+    const config=read(KEYS.config,{});let seq=num(config.nextCriteriaSequence,0);
+    if(!seq)seq=criteria.reduce((m,c)=>Math.max(m,num(String(c.id||'').split('-').pop(),0)),0)+1;
+    config.nextCriteriaSequence=seq+1;localStorage.setItem(KEYS.config,JSON.stringify(config));
+    return `SC-${year}-${String(seq).padStart(4,'0')}`;
+  }
+  function defaultRule(){return{enabled:false,inputMax:20,schoolMax:0,weight:1,method:'자동 비율 환산',formula:''}}
+  function collect(){
+    const year=num(id('criteriaYear').value),schoolName=id('criteriaSchool').value,department=id('criteriaDepartment').value;
+    const old=criteria.find(c=>c.id===editingId)||criteria.find(c=>c.schoolName===schoolName&&c.department===department&&num(c.year)===year);
+    const item={id:old?.id||nextId(year),schoolName,department,year,status:id('criteriaStatus').value,schoolTotal:num(id('criteriaSchoolTotal').value),academicMax:num(id('criteriaAcademicMax').value),academicWeight:num(id('criteriaAcademicWeight').value,1),academicFormula:id('criteriaFormula').value.trim(),expected:num(id('criteriaExpected').value),safe:num(id('criteriaSafe').value),challengeGap:num(id('criteriaChallengeGap').value),rounding:id('criteriaRounding').value,source:id('criteriaSource').value.trim(),memo:id('criteriaMemo').value.trim(),version:num(old?.version,0)+1,updatedAt:new Date().toISOString(),semesters:{},subjects:{},nonAcademic:{}};
+    SEMESTERS.forEach(x=>item.semesters[x]={enabled:document.querySelector(`[data-semester="${x}"]`).checked,weight:num(document.querySelector(`[data-semester-weight="${x}"]`).value,1)});
+    SUBJECTS.forEach(x=>item.subjects[x]={enabled:document.querySelector(`[data-subject="${x}"]`).checked,weight:num(document.querySelector(`[data-subject-weight="${x}"]`).value,1)});
+    NON.forEach(x=>item.nonAcademic[x]={enabled:document.querySelector(`[data-non="${x}"]`).checked,inputMax:num(document.querySelector(`[data-non-input="${x}"]`).value),schoolMax:num(document.querySelector(`[data-non-max="${x}"]`).value),weight:num(document.querySelector(`[data-non-weight="${x}"]`).value,1),method:document.querySelector(`[data-non-method="${x}"]`).value,formula:''});
+    return item;
+  }
+  function validate(c){
+    const errors=[];if(!c.schoolName)errors.push('학교를 선택하세요.');if(!c.department)errors.push('학과를 선택하세요.');if(c.schoolTotal<=0)errors.push('학교총점은 0보다 커야 합니다.');if(c.academicMax<=0)errors.push('교과반영만점은 0보다 커야 합니다.');if(c.expected>c.schoolTotal||c.safe>c.schoolTotal)errors.push('예상·안정 점수는 학교총점을 초과할 수 없습니다.');if(c.safe<c.expected)errors.push('안정예상점수는 예상합격점수 이상이어야 합니다.');if(!Object.values(c.semesters).some(x=>x.enabled))errors.push('반영 학기를 하나 이상 선택하세요.');if(!Object.values(c.subjects).some(x=>x.enabled))errors.push('반영 과목을 하나 이상 선택하세요.');try{formula(c.academicFormula,Object.fromEntries(['평점합','평점평균','반영과목수','최고평점합','가중평점합','가중치합','최고가중평점합','교과만점','전체교과가중치'].map(x=>[x,1])))}catch(error){errors.push(error.message)}return errors;
+  }
+  function formula(source,vars){
+    const names=Object.keys(vars),tokens=[];let p=0,i=0,s=String(source||'').trim();if(!s)throw new Error('교과 산출식이 비어 있습니다.');if(/[;{}\[\]'".`]/.test(s))throw new Error('산출식에 허용되지 않은 기호가 있습니다.');
+    while(i<s.length){if(/\s/.test(s[i])){i++;continue}if(/[+\-*/()]/.test(s[i])){tokens.push(s[i++]);continue}const n=s.slice(i).match(/^\d+(?:\.\d+)?/);if(n){tokens.push(Number(n[0]));i+=n[0].length;continue}const name=names.find(x=>s.startsWith(x,i));if(name){tokens.push(name);i+=name.length;continue}throw new Error('산출식에 등록되지 않은 변수가 있습니다.')}
+    const primary=()=>{const x=tokens[p++];if(x==='('){const v=expr();if(tokens[p++]!==')')throw new Error('산출식 괄호가 맞지 않습니다.');return v}if(x==='-')return-primary();if(typeof x==='number')return x;if(names.includes(x))return num(vars[x]);throw new Error('산출식이 올바르지 않습니다.')};
+    const term=()=>{let v=primary();while(tokens[p]==='*'||tokens[p]==='/'){const op=tokens[p++],r=primary();if(op==='/'&&r===0)throw new Error('0으로 나눌 수 없습니다.');v=op==='*'?v*r:v/r}return v};
+    const expr=()=>{let v=term();while(tokens[p]==='+'||tokens[p]==='-'){const op=tokens[p++],r=term();v=op==='+'?v+r:v-r}return v};const result=expr();if(p!==tokens.length||!Number.isFinite(result))throw new Error('산출식 결과가 올바르지 않습니다.');return result;
+  }
+  function grade(raw){const x=num(raw,NaN);return x<=5?x:x>=90?5:x>=80?4:x>=70?3:x>=60?2:1}
+  function calculate(student,c){let sum=0,count=0,weighted=0,weightSum=0;SEMESTERS.forEach(m=>{if(!c.semesters[m]?.enabled)return;SUBJECTS.forEach(x=>{if(!c.subjects[x]?.enabled)return;const record=student.scores?.[`${m}_${x}`];if(record==null)return;const g=grade(record.grade??record.raw??record),w=num(c.semesters[m].weight,1)*num(c.subjects[x].weight,1);sum+=g;count++;weighted+=g*w;weightSum+=w})});
+    if(!count)throw new Error('교과자료 부족');const vars={평점합:sum,평점평균:sum/count,반영과목수:count,최고평점합:5*count,가중평점합:weighted,가중치합:weightSum,최고가중평점합:5*weightSum,교과만점:c.academicMax,전체교과가중치:c.academicWeight};const academic=formula(c.academicFormula,vars);let nonTotal=0,parts={};NON.forEach(x=>{const rule=c.nonAcademic[x]||defaultRule(),raw=num(student.nonAcademic?.[x]?.raw),inputMax=num(student.nonAcademic?.[x]?.inputMax||rule.inputMax);let score=0;if(rule.enabled){if(rule.method==='원점수 그대로 사용')score=raw*num(rule.weight,1);else{if(inputMax<=0)throw new Error(`${x} 입력만점 오류`);score=raw/inputMax*num(rule.schoolMax)*num(rule.weight,1)}}parts[x]=score;nonTotal+=score});const final=academic+nonTotal,gap=final-c.expected;return{academic,parts,final,gap,level:final>=c.safe?'안정 지원':final>=c.expected?'지원 가능':c.expected-final<=c.challengeGap?'도전 지원':'신중 검토'};
+  }
+  async function recalculate(targetId=null){const students=read(KEYS.students,[]),allCriteria=criteria.filter(c=>c.status==='적용 가능'&&(!targetId||c.id===targetId)),results=read(KEYS.results,[]).filter(r=>targetId?r.criteriaId!==targetId:false);let done=0,errors=0;for(let i=0;i<students.length;i+=10){for(const student of students.slice(i,i+10)){for(const c of allCriteria){try{const x=calculate(student,c);results.push({id:`${student.id}|${c.id}`,studentId:student.id,criteriaId:c.id,criteriaVersion:c.version,studentName:student.name,studentNo:student.studentId,schoolName:c.schoolName,department:c.department,academicScore:x.academic,attendanceScore:x.parts.출석,volunteerScore:x.parts.봉사,aptitudeScore:x.parts.인적성,interviewScore:x.parts.면접,score:x.final,expectedScore:c.expected,safeScore:c.safe,scoreGap:x.gap,level:x.level,status:'정상',calculatedAt:new Date().toISOString()})}catch(error){errors++;results.push({id:`${student.id}|${c.id}`,studentId:student.id,criteriaId:c.id,schoolName:c.schoolName,department:c.department,status:'계산 오류',level:'판단 자료 부족',error:error.message,calculatedAt:new Date().toISOString()})}done++}}id('criteriaMessage').textContent=`재계산 중: ${students.length}명 중 ${Math.min(i+10,students.length)}명 완료`;await new Promise(r=>setTimeout(r,0))}localStorage.setItem(KEYS.results,JSON.stringify(results));const runs=read(KEYS.runs,[]);runs.unshift({at:new Date().toISOString(),criteriaId:targetId||'전체',count:done,errors});localStorage.setItem(KEYS.runs,JSON.stringify(runs));return{done,errors};
+  }
+  function syncLegacy(c){const list=schoolData(),school=list.find(x=>x.name===c.schoolName);if(school){school.cutoff=c.expected;school.departments=school.departments||c.department;school.academic=c.academicMax;school.memo=c.memo;localStorage.setItem('odong-admission-project-v1',JSON.stringify(list))}}
+  async function save(mode){try{const c=collect(),errors=validate(c);if(errors.length)throw new Error(errors.join(' / '));const ix=criteria.findIndex(x=>x.id===c.id);if(ix>=0)criteria[ix]=c;else criteria.push(c);localStorage.setItem(KEYS.criteria,JSON.stringify(criteria));syncLegacy(c);editingId=c.id;id('criteriaId').value=c.id;renderRows();if(mode==='only'){id('criteriaMessage').textContent='학교별 입학요강이 저장되었습니다. 재계산이 필요합니다.';return}const r=await recalculate(mode==='school'?c.id:null);id('criteriaMessage').textContent=`저장 완료: ${r.done}건 재계산, 오류 ${r.errors}건`;if(typeof renderResults==='function')renderResults();if(typeof renderSearch==='function')renderSearch();if(typeof renderStats==='function')renderStats()}catch(error){id('criteriaMessage').textContent=`저장 실패: ${error.message}`}}
+  function loadSelectedCriteria(){const c=criteria.find(x=>x.schoolName===id('criteriaSchool').value&&x.department===id('criteriaDepartment').value&&num(x.year)===num(id('criteriaYear').value));if(!c){editingId='';id('criteriaId').value='';return}editingId=c.id;id('criteriaId').value=c.id;id('criteriaStatus').value=c.status;id('criteriaSchoolTotal').value=c.schoolTotal;id('criteriaAcademicMax').value=c.academicMax;id('criteriaAcademicWeight').value=c.academicWeight;id('criteriaExpected').value=c.expected;id('criteriaSafe').value=c.safe;id('criteriaChallengeGap').value=c.challengeGap;id('criteriaRounding').value=c.rounding;id('criteriaFormula').value=c.academicFormula;id('criteriaSource').value=c.source||'';id('criteriaMemo').value=c.memo||'';SEMESTERS.forEach(x=>{document.querySelector(`[data-semester="${x}"]`).checked=!!c.semesters?.[x]?.enabled;document.querySelector(`[data-semester-weight="${x}"]`).value=num(c.semesters?.[x]?.weight,1)});SUBJECTS.forEach(x=>{document.querySelector(`[data-subject="${x}"]`).checked=!!c.subjects?.[x]?.enabled;document.querySelector(`[data-subject-weight="${x}"]`).value=num(c.subjects?.[x]?.weight,1)});NON.forEach(x=>{const q=c.nonAcademic?.[x]||defaultRule();document.querySelector(`[data-non="${x}"]`).checked=!!q.enabled;document.querySelector(`[data-non-input="${x}"]`).value=q.inputMax;document.querySelector(`[data-non-max="${x}"]`).value=q.schoolMax;document.querySelector(`[data-non-weight="${x}"]`).value=q.weight;document.querySelector(`[data-non-method="${x}"]`).value=q.method})}
+  function edit(c){id('criteriaSchool').value=c.schoolName;populateDepartments();id('criteriaDepartment').value=c.department;id('criteriaYear').value=c.year;loadSelectedCriteria();window.scrollTo({top:0,behavior:'smooth'})}
+  function renderRows(){id('criteriaRows').innerHTML=criteria.length?criteria.map((c,i)=>`<tr><td>${esc(c.id)}</td><td><button type="button" class="secondary" data-edit-criteria="${i}">${esc(c.schoolName)}</button></td><td>${esc(c.department)}</td><td>${c.year}</td><td>${esc(c.status)}</td><td>${c.expected} / ${c.safe}</td><td>v${c.version}</td></tr>`).join(''):'<tr><td colspan="7">저장된 입학요강이 없습니다.</td></tr>';document.querySelectorAll('[data-edit-criteria]').forEach(b=>b.onclick=()=>edit(criteria[num(b.dataset.editCriteria)]) )}
+  document.addEventListener('DOMContentLoaded',()=>{createOptions();populateSchools();populateDepartments();renderRows();id('criteriaSchool').onchange=populateDepartments;id('criteriaDepartment').onchange=loadSelectedCriteria;id('criteriaYear').onchange=loadSelectedCriteria;id('admissionCriteriaForm').onsubmit=e=>{e.preventDefault();save('school')};id('criteriaSaveOnly').onclick=()=>save('only');id('criteriaSaveAll').onclick=()=>save('all')});
+})();

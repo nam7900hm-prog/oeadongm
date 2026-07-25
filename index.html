@@ -6,6 +6,7 @@
   <meta name="description" content="외동중 고등학교 지원 가능성 확인 도우미">
   <title>외동중 고등학교 지원 도우미</title>
   <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/admission-criteria.css">
 </head>
 <body>
   <main class="app-shell">
@@ -19,7 +20,7 @@
       <button class="tab" data-tab="search">학교 확인</button>
       <button class="tab" data-tab="admissions">합격자 자료</button>
       <button class="tab" data-tab="stats">통계</button>
-      <button class="tab" data-tab="manage">학교자료 관리</button>
+      <button class="tab" data-tab="manage">학교별 입학요강 입력</button>
       <button class="tab" data-tab="qr">학생 QR 코드</button>
       <a class="tab" href="admin.html">교사용 자동계산</a>
     </nav>
@@ -75,33 +76,40 @@
 
     <section id="manage" class="tab-panel">
       <section class="panel">
-        <h2>학교자료 관리</h2>
-        <p class="muted">학교를 선택하거나 ‘직접 입력’을 선택해 새 학교를 등록할 수 있습니다.</p>
-        <div class="grid three">
-          <label>학교 선택<select id="schoolPicker"></select></label>
-          <label>학교명<input id="schoolName" placeholder="직접 입력 시 학교명"></label>
-          <label>지역<select id="schoolRegion"><option>경주·포항</option><option>구미·김천</option><option>기타</option><option value="직접입력">직접 입력</option></select></label>
-          <label id="customRegionField" hidden>직접 입력 지역<input id="customRegion" placeholder="예: 안동"></label>
-          <label>학교 유형<select id="schoolType"><option>특성화고</option><option>마이스터고</option></select></label>
-          <label>학교 홈페이지 주소<input id="schoolUrl" type="url" placeholder="https://…"></label>
-          <label>예상 합격점수<input id="cutoff" type="number" min="0" max="100" placeholder="0~100"></label>
-          <label>모집 학과<input id="departments" placeholder="예: 전기과, 디자인과"></label>
-          <label>교과 점수<input id="academicWeight" type="number" min="0" max="100"></label>
-          <label>출석 점수<input id="attendanceWeight" type="number" min="0" max="100"></label>
-          <label>봉사 점수<input id="volunteerWeight" type="number" min="0" max="100"></label>
-          <label>인적성 점수<input id="aptitudeWeight" type="number" min="0" max="100"><span class="check"><input id="aptitudeSkip" type="checkbox"> 미반영</span></label>
-          <label>심층면접 점수<input id="interviewWeight" type="number" min="0" max="100"><span class="check"><input id="interviewSkip" type="checkbox"> 미반영</span></label>
-          <label class="wide">교사 메모 정보<textarea id="teacherMemo" placeholder="담당 교사·상담·연락 메모 등을 자세히 입력하세요."></textarea></label>
-        </div>
-        <div class="actions"><button id="saveSchool">수정 완료 및 전체 적용</button><button id="newSchool" class="secondary">새 학교 만들기</button><a id="homepageLink" hidden target="_blank" rel="noopener">홈페이지 열기</a></div>
+        <h2>학교별 입학요강 입력</h2>
+        <p class="muted">교사용 자동계산의 ‘기준 추가’와 같은 항목입니다. 학교와 학과를 선택한 뒤 입학요강을 저장하세요.</p>
+        <form id="admissionCriteriaForm">
+          <div class="grid three">
+            <label>기준ID<input id="criteriaId" readonly placeholder="저장 시 자동 생성"></label>
+            <label>학교<select id="criteriaSchool"><option value="">학교 선택</option></select></label>
+            <label>학과<select id="criteriaDepartment"><option value="전체">전체</option></select></label>
+            <label>적용학년도<input id="criteriaYear" type="number" value="2027" min="2025" max="2100"></label>
+            <label>적용상태<select id="criteriaStatus"><option>작성 중</option><option selected>적용 가능</option><option>사용 중지</option></select></label>
+            <label>학교총점<input id="criteriaSchoolTotal" type="number" min="1" value="100"></label>
+            <label>교과반영만점<input id="criteriaAcademicMax" type="number" min="1" value="70"></label>
+            <label>전체교과가중치<input id="criteriaAcademicWeight" type="number" min="0" step="0.1" value="1"></label>
+            <label>예상합격점수<input id="criteriaExpected" type="number" min="0" value="70"></label>
+            <label>안정예상점수<input id="criteriaSafe" type="number" min="0" value="80"></label>
+            <label>도전허용점수차이<input id="criteriaChallengeGap" type="number" min="0" value="5"></label>
+            <label>소수점 처리<select id="criteriaRounding"><option>소수점 유지</option><option>소수 첫째 자리 반올림</option><option selected>소수 둘째 자리 반올림</option><option>소수 첫째 자리 버림</option><option>소수 둘째 자리 버림</option></select></label>
+            <label class="wide">교과 산출식<input id="criteriaFormula" value="(가중평점합 / 최고가중평점합) * 교과만점"></label>
+          </div>
+          <fieldset><legend>반영 학기와 가중치</legend><div id="criteriaSemesters" class="criteria-options"></div></fieldset>
+          <fieldset><legend>반영 과목과 가중치</legend><div id="criteriaSubjects" class="criteria-options"></div></fieldset>
+          <fieldset><legend>비교과 반영 설정</legend><div id="criteriaNonAcademic" class="table-wrap"></div></fieldset>
+          <div class="grid two"><label>자료출처<input id="criteriaSource" placeholder="공식 입학전형요강 주소 또는 문서명"></label><label>참고메모<textarea id="criteriaMemo"></textarea></label></div>
+          <p id="criteriaMessage" class="muted" role="status"></p>
+          <div class="actions"><button type="button" id="criteriaSaveOnly" class="secondary">저장만</button><button type="submit">저장 후 해당 학교 재계산</button><button type="button" id="criteriaSaveAll" class="secondary">저장 후 전체 학교 재계산</button></div>
+        </form>
       </section>
-      <section class="panel"><h2>합격선 조정탭</h2><p class="muted">학생 총점과 학교 합격선의 점수 차이로 판정하는 기준입니다. 저장하면 모든 학교의 지원 가능성 결과에 바로 적용됩니다.</p><div class="grid three"><label>안정 기준<input id="stableGap" type="number" step="0.1" placeholder="예: 10"><span class="muted">합격선보다 이 점수 이상 높음</span></label><label>적정 기준<input id="suitableGap" type="number" step="0.1" placeholder="예: 2"><span class="muted">합격선보다 이 점수 이상 높음</span></label><label>소신 하한 기준<input id="challengeGap" type="number" step="0.1" placeholder="예: -2"><span class="muted">이 점수 미만이면 어려움</span></label></div><div class="actions"><button id="saveThresholds">기준 저장 및 전체 적용</button></div></section>
-      <section class="panel"><h2>등록 학교 목록</h2><div class="table-wrap"><table><thead><tr><th>학교명</th><th>지역</th><th>합격점수</th><th>홈페이지</th><th></th></tr></thead><tbody id="manageRows"></tbody></table></div></section>
+      <section class="panel"><h2>저장된 학교별 입학요강</h2><div class="table-wrap"><table><thead><tr><th>기준ID</th><th>학교</th><th>학과</th><th>학년도</th><th>상태</th><th>예상/안정</th><th>버전</th></tr></thead><tbody id="criteriaRows"></tbody></table></div></section>
+      <div hidden aria-hidden="true"><select id="schoolPicker"></select><input id="schoolName"><select id="schoolRegion"><option>기타</option></select><span id="customRegionField"></span><input id="customRegion"><select id="schoolType"><option>특성화고</option></select><input id="schoolUrl"><input id="cutoff"><input id="departments"><input id="academicWeight"><input id="attendanceWeight"><input id="volunteerWeight"><input id="aptitudeWeight"><input id="aptitudeSkip" type="checkbox"><input id="interviewWeight"><input id="interviewSkip" type="checkbox"><textarea id="teacherMemo"></textarea><button id="saveSchool"></button><button id="newSchool"></button><a id="homepageLink"></a><input id="stableGap"><input id="suitableGap"><input id="challengeGap"><button id="saveThresholds"></button><table><tbody id="manageRows"></tbody></table></div>
     </section>
   </main>
-  <dialog id="passwordDialog"><form method="dialog" class="password-box"><h2>학교자료 관리</h2><p>교사용 비밀번호를 입력하세요.</p><label>비밀번호<input id="managePassword" type="password" inputmode="numeric" autocomplete="off"></label><p id="passwordError" class="error" hidden>비밀번호가 맞지 않습니다.</p><div class="actions"><button id="passwordSubmit" type="button">확인</button><button value="cancel" class="secondary">취소</button></div></form></dialog>
+  <dialog id="passwordDialog"><form method="dialog" class="password-box"><h2>학교별 입학요강 입력</h2><p>교사용 비밀번호를 입력하세요.</p><label>비밀번호<input id="managePassword" type="password" inputmode="numeric" autocomplete="off"></label><p id="passwordError" class="error" hidden>비밀번호가 맞지 않습니다.</p><div class="actions"><button id="passwordSubmit" type="button">확인</button><button value="cancel" class="secondary">취소</button></div></form></dialog>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/admission-criteria.js"></script>
 </body>
 </html>

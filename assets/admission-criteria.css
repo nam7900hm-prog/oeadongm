@@ -1,0 +1,7 @@
+#admissionCriteriaForm fieldset{border:1px solid var(--line);border-radius:14px;margin:18px 0;padding:14px}
+#admissionCriteriaForm legend{color:var(--primary);font-weight:800;padding:0 8px}
+.criteria-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.criteria-options label{background:color-mix(in srgb,var(--primary) 7%,var(--surface));border:1px solid var(--line);border-radius:10px;padding:10px}
+.criteria-options input[type=number]{margin-top:7px}
+#criteriaMessage{min-height:1.5em;font-weight:700}
+@media(max-width:720px){.criteria-options{grid-template-columns:1fr}}
