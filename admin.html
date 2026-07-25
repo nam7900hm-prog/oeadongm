@@ -1,0 +1,40 @@
+
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>외동중학교 고입 안내 - 교사용 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div id="login-gate" class="min-h-screen flex items-center justify-center p-6">
+    <form id="teacher-login" class="bg-white rounded-3xl shadow-lg border p-8 w-full max-w-md space-y-5">
+      <div><p class="text-xs font-bold text-blue-600">교사용 관리</p><h1 class="text-2xl font-black mt-1">외동중 고입 안내</h1></div>
+      <p class="text-sm text-slate-500">교사용 PIN을 입력하세요. 최초 PIN은 <b>7900</b>이며 로그인 후 변경할 수 있습니다.</p>
+      <input id="teacher-pin" type="password" inputmode="numeric" class="w-full border rounded-xl p-3" placeholder="PIN" required>
+      <button class="w-full bg-blue-600 text-white rounded-xl p-3 font-bold">로그인</button>
+      <p id="login-error" class="text-red-600 text-xs hidden">PIN이 올바르지 않습니다.</p>
+      <a href="index.html" class="block text-center text-xs text-slate-500">학생 화면으로 돌아가기</a>
+    </form>
+  </div>
+
+  <div id="teacher-app" class="hidden">
+    <header class="bg-white border-b sticky top-0 z-30">
+      <div class="max-w-[1500px] mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div><p class="text-xs font-bold text-blue-600">외동중학교</p><h1 class="text-xl font-black">고등학교 합격 가능성 안내 · 교사용</h1></div>
+        <div class="flex gap-2"><a href="index.html" class="btn-secondary">학생 화면</a><button onclick="logoutTeacher()" class="btn-secondary">로그아웃</button></div>
+      </div>
+      <nav id="admin-tabs" class="max-w-[1500px] mx-auto px-4 flex gap-2 overflow-x-auto pb-3"></nav>
+    </header>
+    <main class="max-w-[1500px] mx-auto p-4 md:p-6">
+      <div id="notice" class="hidden mb-4 rounded-xl p-3 text-sm"></div>
+      <section id="admin-panel"></section>
+    </main>
+  </div>
+  <div id="edit-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 p-4 overflow-y-auto"><div class="bg-white max-w-5xl mx-auto rounded-2xl p-6" id="edit-modal-body"></div></div>
+  <script src="admin.js"></script>
+</body>
+</html>
