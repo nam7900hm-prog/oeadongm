@@ -33,8 +33,8 @@
           <label>학년<select id="grade"></select></label>
           <label>반<select id="classNo"></select></label>
           <label>번호<select id="studentNo"></select></label>
-          <label>출석 점수<input id="attendance" type="number" min="1" max="100" placeholder="1~100"></label>
-          <label>봉사 점수<input id="volunteer" type="number" min="1" max="100" placeholder="1~100"></label>
+          <label>미인정 결석일수<input id="attendance" type="number" min="0" step="1" value="0" placeholder="결석이 없으면 0"></label>
+          <label>봉사시간<input id="volunteer" type="number" min="0" step="0.5" value="30" placeholder="30시간 이상 만점"></label>
           <label>지망 학교<select id="preferredSchool"></select></label>
         </div>
       </section>
@@ -85,10 +85,9 @@
             <label>학교<select id="criteriaSchool"><option value="">학교 선택</option></select></label>
             <label>학과<select id="criteriaDepartment"><option value="전체">전체</option></select></label>
             <label>적용학년도<input id="criteriaYear" type="number" value="2027" min="2025" max="2100"></label>
-            <label>적용상태<select id="criteriaStatus"><option>작성 중</option><option selected>적용 가능</option><option>사용 중지</option></select></label>
+            <label>적용상태<select id="criteriaStatus"><option selected>적용</option><option>미적용</option></select></label>
             <label>학교총점<input id="criteriaSchoolTotal" type="number" min="1" value="100"></label>
             <label>교과반영만점<input id="criteriaAcademicMax" type="number" min="1" value="70"></label>
-            <label>전체교과가중치<input id="criteriaAcademicWeight" type="number" min="0" step="0.1" value="1"></label>
             <label>예상합격점수<input id="criteriaExpected" type="number" min="0" value="70"></label>
             <label>안정예상점수<input id="criteriaSafe" type="number" min="0" value="80"></label>
             <label>도전허용점수차이<input id="criteriaChallengeGap" type="number" min="0" value="5"></label>
@@ -98,9 +97,9 @@
           <fieldset><legend>반영 학기와 가중치</legend><div id="criteriaSemesters" class="criteria-options"></div></fieldset>
           <fieldset><legend>반영 과목과 가중치</legend><div id="criteriaSubjects" class="criteria-options"></div></fieldset>
           <fieldset><legend>비교과 반영 설정</legend><div id="criteriaNonAcademic" class="table-wrap"></div></fieldset>
-          <div class="grid two"><label>자료출처<input id="criteriaSource" placeholder="공식 입학전형요강 주소 또는 문서명"></label><label>참고메모<textarea id="criteriaMemo"></textarea></label></div>
+          <div class="grid two"><label>참고메모<textarea id="criteriaMemo"></textarea></label></div>
           <p id="criteriaMessage" class="muted" role="status"></p>
-          <div class="actions"><button type="button" id="criteriaSaveOnly" class="secondary">저장만</button><button type="submit">저장 후 해당 학교 재계산</button><button type="button" id="criteriaSaveAll" class="secondary">저장 후 전체 학교 재계산</button></div>
+          <div class="actions"><button type="submit">자료 저장</button></div>
         </form>
       </section>
       <section class="panel"><h2>저장된 학교별 입학요강</h2><div class="table-wrap"><table><thead><tr><th>기준ID</th><th>학교</th><th>학과</th><th>학년도</th><th>상태</th><th>예상/안정</th><th>버전</th></tr></thead><tbody id="criteriaRows"></tbody></table></div></section>

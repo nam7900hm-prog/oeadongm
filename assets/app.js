@@ -55,16 +55,20 @@ function refreshSchoolSelectors() {
   const options = schools.map(s => `<option value="${esc(s.name)}">${esc(s.name)} · ${esc(s.region)}</option>`).join('');
   $('schoolPicker').innerHTML = '<option value="">직접 입력</option>' + options; $('preferredSchool').innerHTML = '<option value="">지망 학교 선택</option>' + options; $('seniorSchool').innerHTML = '<option value="">입력된 학교 선택</option>' + options + '<option value="__direct__">직접 입력</option>';
 }
-function studentScore() {
-  const academic = [...document.querySelectorAll('.subject-score')].filter(x => !document.querySelector(`.semester-skip[data-semester="${x.dataset.semester}"]`).checked && x.value && x.value !== 'x').map(x => +x.value);
-  const attendance = Number($('attendance').value), volunteer = Number($('volunteer').value);
-  if (!academic.length || attendance < 1 || attendance > 100 || volunteer < 1 || volunteer > 100) return null;
-  return (academic.reduce((a,b) => a+b, 0) / academic.length * 20 + attendance + volunteer) / 3;
+function activeCriteriaForSchool(name){try{return JSON.parse(localStorage.getItem('odong-school-settings-v2')||'[]').find(c=>c.schoolName===name&&['적용','적용 가능'].includes(c.status))}catch(error){return null}}
+function studentScore(school=null) {
+  const academic = [...document.querySelectorAll('.subject-score')].filter(x => !document.querySelector(`.semester-skip[data-semester="${x.dataset.semester}"]`).checked && x.value && x.value !== 'x').map(x => +x.value),absence=Number($('attendance').value),hours=Number($('volunteer').value);
+  if(!academic.length||!Number.isFinite(absence)||absence<0||!Number.isFinite(hours)||hours<0)return null;
+  const selected=school||schools.find(s=>s.name===$('preferredSchool').value),criteria=activeCriteriaForSchool(selected?.name);
+  if(!criteria)return null;
+  const academicScore=academic.reduce((a,b)=>a+b,0)/academic.length/5*Number(criteria.academicMax||0),rules=criteria.nonAcademic||{};
+  let non=0;for(const key of ['출석','봉사','인적성','면접']){const r=rules[key]||{};if(!r.enabled)continue;const max=Number(r.schoolMax||0),weight=Number(r.weight||1);if(key==='출석')non+=Math.max(0,max-absence*Number(r.deductionPerDay??1))*weight;else if(key==='봉사')non+=Math.min(hours/Math.max(1,Number(r.fullHours||30)),1)*max*weight;else non+=max*weight}
+  return academicScore+non;
 }
-function schoolCutoff(s) { const scores = seniorAdmissions.filter(x => x.school === s.name).map(x => Number(x.score)).filter(Number.isFinite); return scores.length ? Math.min(...scores) : Number(s.cutoff); }
+function schoolCutoff(s) { const criteria=activeCriteriaForSchool(s.name);if(criteria)return Number(criteria.expected);const scores = seniorAdmissions.filter(x => x.school === s.name).map(x => Number(x.score)).filter(Number.isFinite); return scores.length ? Math.min(...scores) : Number(s.cutoff); }
 function loadThresholdForm() { $('stableGap').value=thresholds.stable; $('suitableGap').value=thresholds.suitable; $('challengeGap').value=thresholds.challenge; }
 function updateThresholds() { const stable=Number($('stableGap').value),suitable=Number($('suitableGap').value),challenge=Number($('challengeGap').value); if(!Number.isFinite(stable)||!Number.isFinite(suitable)||!Number.isFinite(challenge)||stable<suitable||suitable<challenge){alert('안정 기준 ≥ 적정 기준 ≥ 소신 하한 기준 순서로 점수를 입력하세요.');return;} thresholds={stable,suitable,challenge};saveThresholds();renderResults();renderSearch();renderStats();alert('합격선 조정 기준이 모든 결과에 적용되었습니다.'); }
-function judgement(s) { const score = studentScore(), cutoff = schoolCutoff(s); if (score === null) return ['성적 입력 필요','challenge']; if (!Number.isFinite(cutoff) || cutoff <= 0) return ['자료 없음','challenge']; const gap = score - cutoff; return gap >= thresholds.stable ? ['안정','safe'] : gap >= thresholds.suitable ? ['적정','match'] : gap >= thresholds.challenge ? ['소신','challenge'] : ['어려움','challenge']; }
+function judgement(s) { const score = studentScore(s), cutoff = schoolCutoff(s); if (score === null) return [activeCriteriaForSchool(s.name)?'성적 입력 필요':'입시요강 미등록','challenge']; if (!Number.isFinite(cutoff) || cutoff <= 0) return ['자료 없음','challenge']; const gap = score - cutoff; return gap >= thresholds.stable ? ['안정','safe'] : gap >= thresholds.suitable ? ['적정','match'] : gap >= thresholds.challenge ? ['소신','challenge'] : ['어려움','challenge']; }
 function editButton(name) { return `<button class="secondary edit" data-edit="${esc(name)}" aria-label="${esc(name)} 수정">✎</button>`; }
 function bindEditButtons() { document.querySelectorAll('[data-edit]').forEach(button => button.onclick = () => { document.querySelector('[data-tab="manage"]').click(); loadForm(schools.find(s => s.name === button.dataset.edit)); }); }
 function renderResults() {
