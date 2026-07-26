@@ -92,7 +92,8 @@
             <label>안정예상점수<input id="criteriaSafe" type="number" min="0" value="80"></label>
             <label>도전허용점수차이<input id="criteriaChallengeGap" type="number" min="0" value="5"></label>
             <label>소수점 처리<select id="criteriaRounding"><option>소수점 유지</option><option>소수 첫째 자리 반올림</option><option selected>소수 둘째 자리 반올림</option><option>소수 첫째 자리 버림</option><option>소수 둘째 자리 버림</option></select></label>
-            <label class="wide">교과 산출식<input id="criteriaFormula" value="(가중평점합 / 최고가중평점합) * 교과만점"></label>
+            <label class="wide check"><input id="criteriaFormulaUse" type="checkbox"> 교과 산출식 직접 사용</label>
+            <label class="wide">교과 산출식<input id="criteriaFormula" value="(평점합 ÷ 40) × 50" disabled><small>체크하면 숫자·괄호·연산식을 자유롭게 수정할 수 있습니다.</small></label>
           </div>
           <fieldset><legend>반영 학기와 가중치</legend><div id="criteriaSemesters" class="criteria-options"></div></fieldset>
           <fieldset><legend>반영 과목과 가중치</legend><div id="criteriaSubjects" class="criteria-options"></div></fieldset>
