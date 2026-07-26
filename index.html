@@ -22,7 +22,8 @@
       <button class="tab" data-tab="stats">통계</button>
       <button class="tab" data-tab="manage">학교별 입학요강 입력</button>
       <button class="tab" data-tab="qr">학생 QR 코드</button>
-      <a class="tab" href="admin.html">교사용 자동계산</a>
+      <button class="tab" data-tab="password-change">비밀번호 변경</button>
+      <a class="tab" href="admin.html">일괄등록 및 조회</a>
     </nav>
 
     <section id="student" class="tab-panel is-active">
@@ -77,7 +78,7 @@
     <section id="manage" class="tab-panel">
       <section class="panel">
         <h2>학교별 입학요강 입력</h2>
-        <p class="muted">교사용 자동계산의 ‘기준 추가’와 같은 항목입니다. 학교와 학과를 선택한 뒤 입학요강을 저장하세요.</p>
+        <p class="muted">학교별 등록과 같은 항목입니다. 학교와 학과를 선택한 뒤 입학요강을 저장하세요.</p>
         <form id="admissionCriteriaForm">
           <div class="grid three">
             <label>기준ID<input id="criteriaId" readonly placeholder="저장 시 자동 생성"></label>
@@ -104,6 +105,10 @@
       </section>
       <section class="panel"><h2>저장된 학교별 입학요강</h2><div class="table-wrap"><table><thead><tr><th>기준ID</th><th>학교</th><th>학과</th><th>학년도</th><th>상태</th><th>예상/안정</th><th>버전</th></tr></thead><tbody id="criteriaRows"></tbody></table></div></section>
       <div hidden aria-hidden="true"><select id="schoolPicker"></select><input id="schoolName"><select id="schoolRegion"><option>기타</option></select><span id="customRegionField"></span><input id="customRegion"><select id="schoolType"><option>특성화고</option></select><input id="schoolUrl"><input id="cutoff"><input id="departments"><input id="academicWeight"><input id="attendanceWeight"><input id="volunteerWeight"><input id="aptitudeWeight"><input id="aptitudeSkip" type="checkbox"><input id="interviewWeight"><input id="interviewSkip" type="checkbox"><textarea id="teacherMemo"></textarea><button id="saveSchool"></button><button id="newSchool"></button><a id="homepageLink"></a><input id="stableGap"><input id="suitableGap"><input id="challengeGap"><button id="saveThresholds"></button><table><tbody id="manageRows"></tbody></table></div>
+    </section>
+
+    <section id="password-change" class="tab-panel">
+      <section class="panel"><h2>비밀번호 변경</h2><p class="muted">입시요강 등록에 사용하는 교사용 비밀번호를 변경합니다.</p><div class="grid three"><label>현재 비밀번호<input id="currentManagePassword" type="password" inputmode="numeric" autocomplete="current-password"></label><label>새 비밀번호<input id="newManagePassword" type="password" inputmode="numeric" autocomplete="new-password"></label><label>새 비밀번호 확인<input id="confirmManagePassword" type="password" inputmode="numeric" autocomplete="new-password"></label></div><div class="actions"><button id="changeManagePassword" type="button">비밀번호 변경</button></div><p id="changeManagePasswordMessage" class="muted" role="status"></p></section>
     </section>
   </main>
   <dialog id="passwordDialog"><form method="dialog" class="password-box"><h2>학교별 입학요강 입력</h2><p>교사용 비밀번호를 입력하세요.</p><label>비밀번호<input id="managePassword" type="password" inputmode="numeric" autocomplete="off"></label><p id="passwordError" class="error" hidden>비밀번호가 맞지 않습니다.</p><div class="actions"><button id="passwordSubmit" type="button">확인</button><button value="cancel" class="secondary">취소</button></div></form></dialog>
