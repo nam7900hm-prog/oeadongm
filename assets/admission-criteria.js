@@ -17,13 +17,15 @@
     id('criteriaNonAcademic').innerHTML=`<table><thead><tr><th>영역</th><th>반영</th><th>학교만점</th><th>추가 기준</th><th>가중치</th></tr></thead><tbody>${NON.map(x=>`<tr><td>${x}</td><td><input type="checkbox" data-non="${x}"></td><td><input type="number" data-non-max="${x}" min="0" value="0"></td><td>${x==='출석'?'<label>결석 1일당 감점 <input type="number" data-non-special="출석" min="0" step="0.1" value="1"></label>':x==='봉사'?'<label>만점 인정시간 <input type="number" data-non-special="봉사" min="1" value="30"></label>':'학생 입력 없이 학교만점 자동 적용'}</td><td><input type="number" data-non-weight="${x}" min="0" step="0.1" value="1"></td></tr>`).join('')}</tbody></table>`;
   }
   function populateSchools(){
-    const source=schoolData();
-    const names=source.length?source.map(s=>s.name):[...id('preferredSchool').options].map(o=>o.value).filter(Boolean);
+    const source=schoolData(),previous=id('criteriaSchool').value;
+    const names=[...source.map(s=>s.name),...criteria.map(c=>c.schoolName),...[...id('preferredSchool').options].map(o=>o.value)].map(x=>String(x||'').trim()).filter(Boolean);
     id('criteriaSchool').innerHTML='<option value="">학교 선택</option>'+[...new Set(names)].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    if([...id('criteriaSchool').options].some(o=>o.value===previous))id('criteriaSchool').value=previous;
   }
   function populateDepartments(){
     const school=schoolData().find(x=>x.name===id('criteriaSchool').value);
-    const values=String(school?.departments||'').split(/[,/\n]/).map(x=>x.trim()).filter(Boolean);
+    const linked=criteria.filter(c=>c.schoolName===id('criteriaSchool').value).map(c=>c.department);
+    const values=[...String(school?.departments||'').split(/[,/\n]/),...linked].map(x=>String(x||'').trim()).filter(x=>x&&x!=='전체');
     id('criteriaDepartment').innerHTML='<option value="전체">전체</option>'+[...new Set(values)].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
     id('criteriaDepartment').selectedIndex=0;
     loadSelectedCriteria();
@@ -67,4 +69,5 @@
   function edit(c){id('criteriaSchool').value=c.schoolName;populateDepartments();id('criteriaDepartment').value=c.department;id('criteriaYear').value=c.year;loadSelectedCriteria();window.scrollTo({top:0,behavior:'smooth'})}
   function renderRows(){id('criteriaRows').innerHTML=criteria.length?criteria.map((c,i)=>`<tr><td>${esc(c.id)}</td><td><button type="button" class="secondary" data-edit-criteria="${i}">${esc(c.schoolName)}</button></td><td>${esc(c.department)}</td><td>${c.year}</td><td>${esc(c.status)}</td><td>${c.expected} / ${c.safe}</td><td>v${c.version}</td></tr>`).join(''):'<tr><td colspan="7">저장된 입학요강이 없습니다.</td></tr>';document.querySelectorAll('[data-edit-criteria]').forEach(b=>b.onclick=()=>edit(criteria[num(b.dataset.editCriteria)]) )}
   document.addEventListener('DOMContentLoaded',()=>{criteria=criteria.map(c=>({...c,status:['적용','적용 가능'].includes(c.status)?'적용':'미적용',useAcademicFormula:c.useAcademicFormula??true}));createOptions();populateSchools();populateDepartments();renderRows();id('criteriaFormulaUse').onchange=()=>{id('criteriaFormula').disabled=!id('criteriaFormulaUse').checked;if(id('criteriaFormulaUse').checked&&!id('criteriaFormula').value.trim())id('criteriaFormula').value='(평점합 ÷ 40) × 50'};id('criteriaSchool').onchange=populateDepartments;id('criteriaDepartment').onchange=loadSelectedCriteria;id('criteriaYear').onchange=loadSelectedCriteria;id('admissionCriteriaForm').onsubmit=e=>{e.preventDefault();save('all')}});
+  window.addEventListener('storage',event=>{if(event.key!==KEYS.criteria&&event.key!=='odong-admission-project-v1')return;criteria=read(KEYS.criteria,criteria).map(c=>({...c,status:['적용','적용 가능'].includes(c.status)?'적용':'미적용',useAcademicFormula:c.useAcademicFormula??true}));populateSchools();renderRows()});
 })();
