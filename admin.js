@@ -2,6 +2,7 @@
 /* 외동중학교 고입 안내 교사용 데이터 엔진 - 모든 데이터는 이 브라우저에만 저장됩니다. */
 const DB_KEY='oeadong_teacher_db_v2';
 const STORAGE_KEYS={schools:'odong-school-settings-v2',students:'odong-students-v2',results:'odong-results-v2',runs:'odong-calculation-runs-v2',audit:'odong-upload-history-v2',config:'odong-config-v2'};
+const SCHOOL_BACKUP_KEY='odong-school-settings-v2-backup';
 const SUBJECTS=['국어','영어','수학','과학','사회','역사','도덕','기술가정','미술','체육'];
 const SEMESTERS=['2-1','2-2','3-1'];
 const CRITERIA_STATUS=['적용','미적용'];
@@ -14,19 +15,22 @@ let db=loadDb(), activeAdminTab='criteria', schoolPreview=[], studentPreview=[];
 
 function freshDb(){return{version:2,criteria:[],students:[],results:[],runs:[],audit:[],scoreConversion:{version:1,bands:[[90,5],[80,4],[70,3],[60,2],[0,1]]},teacherPin:'6673'}}
 function safeRead(key,fallback){try{const raw=localStorage.getItem(key);return raw===null?fallback:JSON.parse(raw)}catch(error){console.error(`${key} JSON 손상`,error);return fallback}}
+function criteriaIdentity(c){return`${String(c?.schoolName||'').trim()}|${String(c?.department||'전체').trim()}|${Number(c?.year)||2027}`}
+function mergeCriteriaSources(...sources){const merged=[],ids=new Set(),keys=new Set();sources.flat().filter(Boolean).forEach(c=>{const id=String(c.id||''),key=criteriaIdentity(c);if((id&&ids.has(id))||keys.has(key))return;merged.push(c);if(id)ids.add(id);keys.add(key)});return merged}
+function recoverLegacyCriteria(existing=[]){const knownSchools=new Set(existing.map(c=>String(c.schoolName||'').trim()).filter(Boolean)),legacy=safeRead('odong-admission-project-v1',[]);return(Array.isArray(legacy)?legacy:[]).filter(s=>s?.name&&!knownSchools.has(String(s.name).trim())).map((s,i)=>{const c=defaultCriteria(existing.length+i+1);c.schoolName=String(s.name).trim();c.department=String(s.departments||'전체').trim()||'전체';c.status='적용';c.expected=Number(s.cutoff)||0;c.safe=Math.max(c.expected,Math.min(c.schoolTotal,c.expected+10));c.source=s.url||'';c.memo=s.memo||'';c.version=1;return c})}
 function loadDb(){
   const next=freshDb();
   const hasV2=Object.values(STORAGE_KEYS).some(key=>localStorage.getItem(key)!==null);
-  if(hasV2){next.criteria=safeRead(STORAGE_KEYS.schools,[]);next.students=safeRead(STORAGE_KEYS.students,[]);next.results=safeRead(STORAGE_KEYS.results,[]);next.runs=safeRead(STORAGE_KEYS.runs,[]);next.audit=safeRead(STORAGE_KEYS.audit,[]);Object.assign(next,safeRead(STORAGE_KEYS.config,{}));next.teacherPin=String(next.teacherPin||'6673');return next}
+  if(hasV2){const current=safeRead(STORAGE_KEYS.schools,[]),backup=safeRead(SCHOOL_BACKUP_KEY,[]),old=safeRead(DB_KEY,null);next.criteria=mergeCriteriaSources(current,backup,Array.isArray(old?.criteria)?old.criteria:[]);next.criteria=mergeCriteriaSources(next.criteria,recoverLegacyCriteria(next.criteria));next.students=safeRead(STORAGE_KEYS.students,Array.isArray(old?.students)?old.students:[]);next.results=safeRead(STORAGE_KEYS.results,Array.isArray(old?.results)?old.results:[]);next.runs=safeRead(STORAGE_KEYS.runs,Array.isArray(old?.runs)?old.runs:[]);next.audit=safeRead(STORAGE_KEYS.audit,Array.isArray(old?.audit)?old.audit:[]);Object.assign(next,safeRead(STORAGE_KEYS.config,{}));next.teacherPin=String(next.teacherPin||'6673');if(next.criteria.length>current.length){try{if(current.length)localStorage.setItem(SCHOOL_BACKUP_KEY,JSON.stringify(current));localStorage.setItem(STORAGE_KEYS.schools,JSON.stringify(next.criteria));next.audit.unshift({at:new Date().toISOString(),action:`학교자료 자동 복구 ${next.criteria.length-current.length}건`})}catch(error){console.error('학교자료 자동 복구 저장 실패',error)}}return next}
   const old=safeRead(DB_KEY,null);if(old)Object.assign(next,old);next.teacherPin=String(next.teacherPin||'6673');
   return migrateLegacyStorage(next);
 }
 function writeSeparatedStorage(){
   const backups=Object.fromEntries(Object.values(STORAGE_KEYS).map(k=>[k,localStorage.getItem(k)]));
-  try{localStorage.setItem(STORAGE_KEYS.schools,JSON.stringify(db.criteria));localStorage.setItem(STORAGE_KEYS.students,JSON.stringify(db.students));localStorage.setItem(STORAGE_KEYS.results,JSON.stringify(db.results));localStorage.setItem(STORAGE_KEYS.runs,JSON.stringify(db.runs));localStorage.setItem(STORAGE_KEYS.audit,JSON.stringify(db.audit));localStorage.setItem(STORAGE_KEYS.config,JSON.stringify({version:db.version,scoreConversion:db.scoreConversion,teacherPin:db.teacherPin}));}
+  try{if(backups[STORAGE_KEYS.schools])localStorage.setItem(SCHOOL_BACKUP_KEY,backups[STORAGE_KEYS.schools]);localStorage.setItem(STORAGE_KEYS.schools,JSON.stringify(db.criteria));localStorage.setItem(STORAGE_KEYS.students,JSON.stringify(db.students));localStorage.setItem(STORAGE_KEYS.results,JSON.stringify(db.results));localStorage.setItem(STORAGE_KEYS.runs,JSON.stringify(db.runs));localStorage.setItem(STORAGE_KEYS.audit,JSON.stringify(db.audit));localStorage.setItem(STORAGE_KEYS.config,JSON.stringify({version:db.version,scoreConversion:db.scoreConversion,teacherPin:db.teacherPin}));}
   catch(error){Object.entries(backups).forEach(([k,v])=>v===null?localStorage.removeItem(k):localStorage.setItem(k,v));throw new Error(error?.name==='QuotaExceededError'?'저장공간이 부족합니다. 기존 자료는 보존했습니다.':'자료 저장에 실패했습니다. 기존 자료는 보존했습니다.')}
 }
-function saveDb(action='저장'){db.audit.unshift({at:new Date().toISOString(),action});writeSeparatedStorage()}
+function saveDb(action='저장',preserveSchools=true){if(preserveSchools)db.criteria=mergeCriteriaSources(db.criteria,safeRead(STORAGE_KEYS.schools,[]));db.audit.unshift({at:new Date().toISOString(),action});writeSeparatedStorage()}
 function migrateLegacyStorage(target=freshDb()){
   try{
     const legacySchools=safeRead('odong-admission-project-v1',[]);
@@ -142,7 +146,7 @@ function renderDownloads(){document.getElementById('admin-panel').innerHTML=`<di
 function renderData(){document.getElementById('admin-panel').innerHTML=summaryCards()+`<div class="grid md:grid-cols-2 gap-4"><div class="admin-card space-y-3"><h2 class="font-black">교사용 비밀번호</h2><p class="text-sm font-black text-blue-700 bg-blue-50 p-3 rounded">모든 교사용 화면의 비밀번호는 6673으로 통일되어 있습니다.</p><p class="text-xs text-amber-700 bg-amber-50 p-2 rounded">이 프로젝트는 서버 없는 정적 앱입니다. 비밀번호는 같은 브라우저의 일반 사용자 구분용이며 실제 계정 보안을 대신하지 않습니다.</p></div><div class="admin-card space-y-3"><h2 class="font-black">데이터 삭제</h2><button class="btn-danger" onclick="deleteStudents()">학생 자료 전체 삭제</button><button class="btn-danger" onclick="deleteExpired()">1년 지난 감사기록 삭제</button><button class="btn-danger" onclick="resetAllData()">모든 교사 데이터 초기화</button></div><div class="admin-card md:col-span-2"><h2 class="font-black mb-3">최근 기록</h2><div class="max-h-60 overflow-auto text-xs">${db.audit.slice(0,100).map(x=>`<div class="border-b py-2">${new Date(x.at).toLocaleString()} · ${esc(x.action)}</div>`).join('')}</div></div></div>`}
 function deleteStudents(){if(confirm('학생 자료와 계산 결과를 모두 삭제합니까?')){db.students=[];db.results=[];saveDb('학생 자료 전체 삭제');renderData()}}
 function deleteExpired(){const cut=Date.now()-365*86400000;db.audit=db.audit.filter(x=>new Date(x.at).getTime()>=cut);saveDb('보관기간 경과 기록 삭제');renderData()}
-function resetAllData(){if(confirm('학교 기준, 학생, 결과를 모두 삭제합니까?')){db=freshDb();saveDb('전체 초기화');renderData()}}
+function resetAllData(){if(confirm('학교 기준, 학생, 결과를 모두 삭제합니까?')){db=freshDb();saveDb('전체 초기화',false);renderData()}}
 function logoutTeacher(){sessionStorage.removeItem('oeadong_teacher');location.reload()}
 
 const renderCriteriaBase=renderCriteria;
