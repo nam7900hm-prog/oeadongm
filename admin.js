@@ -3,6 +3,11 @@
 const DB_KEY='oeadong_teacher_db_v2';
 const STORAGE_KEYS={schools:'odong-school-settings-v2',students:'odong-students-v2',results:'odong-results-v2',runs:'odong-calculation-runs-v2',audit:'odong-upload-history-v2',config:'odong-config-v2'};
 const SCHOOL_BACKUP_KEY='odong-school-settings-v2-backup';
+const FULL_BACKUP_KEYS=[
+  'odong-admission-project-v1','odong-admission-predictions-v1','odong-admission-seniors-v1','odong-admission-thresholds-v1',
+  STORAGE_KEYS.schools,STORAGE_KEYS.students,STORAGE_KEYS.results,STORAGE_KEYS.runs,STORAGE_KEYS.audit,STORAGE_KEYS.config,
+  DB_KEY,SCHOOL_BACKUP_KEY
+];
 const SUBJECTS=['국어','영어','수학','과학','사회','역사','도덕','기술가정','미술','체육'];
 const SEMESTERS=['2-1','2-2','3-1'];
 const CRITERIA_STATUS=['적용','미적용'];
@@ -147,6 +152,25 @@ function renderData(){document.getElementById('admin-panel').innerHTML=summaryCa
 function deleteStudents(){if(confirm('학생 자료와 계산 결과를 모두 삭제합니까?')){db.students=[];db.results=[];saveDb('학생 자료 전체 삭제');renderData()}}
 function deleteExpired(){const cut=Date.now()-365*86400000;db.audit=db.audit.filter(x=>new Date(x.at).getTime()>=cut);saveDb('보관기간 경과 기록 삭제');renderData()}
 function resetAllData(){if(confirm('학교 기준, 학생, 결과를 모두 삭제합니까?')){db=freshDb();saveDb('전체 초기화',false);renderData()}}
+function downloadFullBackup(){
+  const storage={};FULL_BACKUP_KEYS.forEach(key=>{const raw=localStorage.getItem(key);if(raw!==null)storage[key]=raw});
+  const payload={format:'oeadong-localstorage-backup',version:1,exportedAt:new Date().toISOString(),origin:location.origin,storage};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a'),date=new Date().toISOString().slice(0,10);
+  a.href=url;a.download=`외동중_고입예측_전체백업_${date}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);notify(`${Object.keys(storage).length}개 저장항목을 백업했습니다.`)
+}
+function chooseFullBackup(){const input=document.getElementById('full-backup-file');if(input){input.value='';input.click()}}
+async function restoreFullBackup(input){
+  const file=input.files?.[0];if(!file)return;
+  try{
+    const payload=JSON.parse(await file.text());if(payload?.format!=='oeadong-localstorage-backup'||payload?.version!==1||!payload.storage||typeof payload.storage!=='object')throw new Error('이 앱에서 만든 전체 백업 JSON 파일이 아닙니다.');
+    const entries=Object.entries(payload.storage).filter(([key,value])=>FULL_BACKUP_KEYS.includes(key)&&typeof value==='string');if(!entries.length)throw new Error('복원할 저장자료가 없습니다.');
+    entries.forEach(([key,value])=>{JSON.parse(value)});
+    if(!confirm(`백업자료 ${entries.length}개 항목을 현재 브라우저에 복원합니다.\n파일에 없는 현재 자료는 삭제하지 않습니다. 계속할까요?`))return;
+    const before=Object.fromEntries(entries.map(([key])=>[key,localStorage.getItem(key)]));
+    try{entries.forEach(([key,value])=>localStorage.setItem(key,value));for(const [key,value] of entries)if(localStorage.getItem(key)!==value)throw new Error(`${key} 복원 확인 실패`)}catch(error){Object.entries(before).forEach(([key,value])=>value===null?localStorage.removeItem(key):localStorage.setItem(key,value));throw error}
+    alert('전체 백업 복원이 완료되었습니다. 화면을 새로 불러옵니다.');location.reload()
+  }catch(error){notify(`백업 복원 실패: ${error.message}`,'error')}
+}
 function logoutTeacher(){sessionStorage.removeItem('oeadong_teacher');location.reload()}
 
 const renderCriteriaBase=renderCriteria;
@@ -167,7 +191,7 @@ const renderStudentImportBase=renderStudentImport;
 renderStudentImport=function(){renderStudentImportBase();document.getElementById('admin-panel').innerHTML=document.getElementById('admin-panel').innerHTML.replaceAll('학생 성적 일괄등록','학생 일괄등록')}
 function renderPasswordChange(){document.getElementById('admin-panel').innerHTML=`<div class="admin-card max-w-xl space-y-4"><h2 class="font-black">비밀번호 변경</h2><p class="text-xs text-slate-500">학교별 일괄등록과 입시요강 등록에 사용하는 비밀번호를 함께 변경합니다.</p><label class="text-xs font-bold block">현재 비밀번호<input id="current-pin" type="password" inputmode="numeric" autocomplete="current-password" class="admin-input mt-1"></label><label class="text-xs font-bold block">새 비밀번호<input id="new-pin" type="password" inputmode="numeric" autocomplete="new-password" class="admin-input mt-1"></label><label class="text-xs font-bold block">새 비밀번호 확인<input id="confirm-pin" type="password" inputmode="numeric" autocomplete="new-password" class="admin-input mt-1"></label><button class="btn-primary" onclick="changeTeacherPassword()">비밀번호 변경</button><p id="pin-message" class="text-xs" role="status"></p></div>`}
 function changeTeacherPassword(){const current=document.getElementById('current-pin').value,next=document.getElementById('new-pin').value,confirmPin=document.getElementById('confirm-pin').value,message=document.getElementById('pin-message');if(current!==db.teacherPin){message.textContent='현재 비밀번호가 맞지 않습니다.';return}if(next.length<4){message.textContent='새 비밀번호는 4자리 이상 입력하세요.';return}if(next!==confirmPin){message.textContent='새 비밀번호 확인이 일치하지 않습니다.';return}db.teacherPin=next;saveDb('비밀번호 변경');message.textContent='비밀번호가 변경되었습니다.'}
-renderData=function(){document.getElementById('admin-panel').innerHTML=summaryCards()+`<div class="grid md:grid-cols-2 gap-4"><div class="admin-card space-y-3"><h2 class="font-black">데이터 삭제</h2><button class="btn-danger" onclick="deleteStudents()">학생 자료 전체 삭제</button><button class="btn-danger" onclick="deleteExpired()">1년 지난 감사기록 삭제</button><button class="btn-danger" onclick="resetAllData()">모든 교사 데이터 초기화</button></div><div class="admin-card"><h2 class="font-black mb-3">최근 기록</h2><div class="max-h-60 overflow-auto text-xs">${db.audit.slice(0,100).map(x=>`<div class="border-b py-2">${new Date(x.at).toLocaleString()} · ${esc(x.action)}</div>`).join('')}</div></div></div>`}
+renderData=function(){document.getElementById('admin-panel').innerHTML=summaryCards()+`<div class="grid md:grid-cols-2 gap-4"><div class="admin-card space-y-3"><h2 class="font-black">전체 자료 백업·복원</h2><p class="text-xs text-slate-500">학교정보, 전형기준, 산출식, 합격예상점수와 설정자료를 기존 저장 키 그대로 JSON 한 파일에 보관합니다.</p><button class="btn-primary" onclick="downloadFullBackup()">전체 백업 다운로드</button><button class="btn-secondary" onclick="chooseFullBackup()">전체 백업 복원</button><input id="full-backup-file" type="file" accept="application/json,.json" class="hidden" onchange="restoreFullBackup(this)"><p class="text-xs text-amber-700 bg-amber-50 p-2 rounded">복원은 백업 파일에 포함된 항목만 되돌리며, 파일에 없는 현재 자료는 삭제하지 않습니다.</p></div><div class="admin-card space-y-3"><h2 class="font-black">데이터 삭제</h2><button class="btn-danger" onclick="deleteStudents()">학생 자료 전체 삭제</button><button class="btn-danger" onclick="deleteExpired()">1년 지난 감사기록 삭제</button><button class="btn-danger" onclick="resetAllData()">모든 교사 데이터 초기화</button></div><div class="admin-card md:col-span-2"><h2 class="font-black mb-3">최근 기록</h2><div class="max-h-60 overflow-auto text-xs">${db.audit.slice(0,100).map(x=>`<div class="border-b py-2">${new Date(x.at).toLocaleString()} · ${esc(x.action)}</div>`).join('')}</div></div></div>`}
 
 criteriaWorkbook=function(includeExamples=false,current=false){
   const list=current?db.criteria:(includeExamples?[exampleCriteria('SCHOOL001','가상고등학교','전체학과')]:[]);
