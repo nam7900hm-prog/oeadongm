@@ -4,7 +4,7 @@ const DB_KEY='oeadong_teacher_db_v2';
 const STORAGE_KEYS={schools:'odong-school-settings-v2',students:'odong-students-v2',results:'odong-results-v2',runs:'odong-calculation-runs-v2',audit:'odong-upload-history-v2',config:'odong-config-v2'};
 const SCHOOL_BACKUP_KEY='odong-school-settings-v2-backup';
 const FULL_BACKUP_KEYS=[
-  'odong-admission-project-v1','odong-admission-predictions-v1','odong-admission-seniors-v1','odong-admission-thresholds-v1',
+  'odong-admission-project-v1','odong-admission-predictions-v1','odong-admission-seniors-v1','odong-admission-thresholds-v1','odong-student-info-v1',
   STORAGE_KEYS.schools,STORAGE_KEYS.students,STORAGE_KEYS.results,STORAGE_KEYS.runs,STORAGE_KEYS.audit,STORAGE_KEYS.config,
   DB_KEY,SCHOOL_BACKUP_KEY
 ];

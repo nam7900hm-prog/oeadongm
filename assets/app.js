@@ -8,6 +8,7 @@ const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const regionOf = name => /경주|신라|삼성생활|모빌리티|국제통상|반도체|효청|기계금속/.test(name) ? '경주·포항' : /구미|금오|김천|과학기술|경북생활/.test(name) ? '구미·김천' : '기타';
 const STORAGE_KEY = 'odong-admission-project-v1';
+const STUDENT_INFO_KEY = 'odong-student-info-v1';
 let schools = loadSchools();
 let predictions = JSON.parse(localStorage.getItem('odong-admission-predictions-v1') || '[]');
 let seniorAdmissions = JSON.parse(localStorage.getItem('odong-admission-seniors-v1') || '[]');
@@ -24,12 +25,16 @@ function normalize(s) { return {name:s.name || '', type:s.type || '특성화고'
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(schools)); }
 function saveStats() { localStorage.setItem('odong-admission-predictions-v1', JSON.stringify(predictions)); localStorage.setItem('odong-admission-seniors-v1', JSON.stringify(seniorAdmissions)); }
 function saveThresholds() { localStorage.setItem('odong-admission-thresholds-v1', JSON.stringify(thresholds)); }
+function currentStudentInfo(){return{grade:$('grade').value,classNo:$('classNo').value,studentNo:$('studentNo').value,name:$('studentName').value.trim()}}
+function saveStudentInfo(){localStorage.setItem(STUDENT_INFO_KEY,JSON.stringify(currentStudentInfo()))}
+function loadStudentInfo(){try{const info=JSON.parse(localStorage.getItem(STUDENT_INFO_KEY)||'null');if(!info)return;if(info.grade)$('grade').value=String(info.grade);if(info.classNo)$('classNo').value=String(info.classNo);if(info.studentNo)$('studentNo').value=String(info.studentNo);$('studentName').value=String(info.name||'').trim()}catch(error){console.error('학생정보 불러오기 실패',error)}}
+function clearStudentInfo(){localStorage.removeItem(STUDENT_INFO_KEY);$('grade').value='3';$('classNo').value='1';$('studentNo').value='1';$('studentName').value='';$('studentName').focus()}
 
 function init() {
   $('grade').innerHTML = [1,2,3].map(v => `<option${v===3?' selected':''}>${v}</option>`).join('');
   $('classNo').innerHTML = [1,2,3,4,5].map(v => `<option>${v}</option>`).join('');
   $('studentNo').innerHTML = Array.from({length:30}, (_, i) => `<option>${i+1}</option>`).join('');
-  buildSemesterInputs(); bindTabs(); refreshSchoolSelectors(); bindEvents(); loadThresholdForm(); renderSearch(); renderManage(); renderStats(); loadForm(schools[0]); makeQr();
+  loadStudentInfo(); buildSemesterInputs(); bindTabs(); refreshSchoolSelectors(); bindEvents(); loadThresholdForm(); renderSearch(); renderManage(); renderStats(); loadForm(schools[0]); makeQr();
 }
 function buildSemesterInputs() {
   $('semesterInputs').innerHTML = SEMESTERS.map((semester, i) => `<section class="semester"><div class="semester-head"><h3>${semester}</h3><label class="check"><input class="semester-skip" data-semester="${i}" type="checkbox"> 비적용</label></div><div class="subject-grid">${SUBJECTS.map(subject => `<label>${subject}<select class="subject-score" data-semester="${i}"><option value="">선택</option><option value="5">5점</option><option value="4">4점</option><option value="3">3점</option><option value="2">2점</option><option value="1">1점</option><option value="x">미반영</option><option value="x">미이수</option></select></label>`).join('')}</div></section>`).join('');
@@ -41,7 +46,8 @@ function saveTeacherPassword(pin){let config={};try{config=JSON.parse(localStora
 function bindTabs() { document.querySelectorAll('.tab').forEach(button => button.addEventListener('click', () => { if (['manage','stats'].includes(button.dataset.tab) && !managementUnlocked) { protectedTarget = button.dataset.tab; $('managePassword').value = ''; $('passwordError').hidden = true; $('passwordDialog').showModal(); return; } activateTab(button.dataset.tab); })); $('passwordSubmit').onclick = () => { if ($('managePassword').value === teacherPassword()) { managementUnlocked = true; $('passwordDialog').close(); activateTab(protectedTarget); } else $('passwordError').hidden = false; }; }
 function bindPasswordChange(){ $('changeManagePassword').onclick=()=>{const current=$('currentManagePassword').value,next=$('newManagePassword').value,confirmPin=$('confirmManagePassword').value,message=$('changeManagePasswordMessage');if(current!==teacherPassword()){message.textContent='현재 비밀번호가 맞지 않습니다.';return}if(next.length<4){message.textContent='새 비밀번호는 4자리 이상 입력하세요.';return}if(next!==confirmPin){message.textContent='새 비밀번호 확인이 일치하지 않습니다.';return}saveTeacherPassword(next);managementUnlocked=false;message.textContent='비밀번호가 변경되었습니다.';$('currentManagePassword').value=$('newManagePassword').value=$('confirmManagePassword').value=''} }
 function bindEvents() {
-  $('calculateButton').onclick = () => { if (studentScore() === null) return alert('적용 학기 성적과 출석·봉사 점수를 모두 입력하세요.'); recordPrediction(); renderResults(); renderSearch(); renderStats(); };
+  $('calculateButton').onclick = () => { $('studentName').value=$('studentName').value.trim();if(!$('studentName').value){$('studentName').focus();return alert('학생 이름을 입력하세요.')}if (studentScore() === null) return alert('적용 학기 성적과 출석·봉사 점수를 모두 입력하세요.');saveStudentInfo();recordPrediction(); renderResults(); renderSearch(); renderStats(); };
+  ['grade','classNo','studentNo'].forEach(key=>$(key).onchange=saveStudentInfo);$('studentName').onchange=()=>{$('studentName').value=$('studentName').value.trim();saveStudentInfo()};$('clearStudentInfo').onclick=clearStudentInfo;
   $('resultRegion').onchange = renderResults; $('searchButton').onclick = renderSearch; $('searchRegion').onchange = renderSearch; $('searchName').oninput = renderSearch;
   $('schoolPicker').onchange = () => loadForm(schools.find(s => s.name === $('schoolPicker').value));
   $('schoolRegion').onchange = () => $('customRegionField').hidden = $('schoolRegion').value !== '직접입력';
@@ -95,7 +101,7 @@ function saveForm() {
 function renderManage() { $('manageRows').innerHTML = schools.map(s => `<tr><td><button class="secondary edit" data-edit="${esc(s.name)}">${esc(s.name)}</button></td><td>${esc(s.region)}</td><td>${s.cutoff || '-'}</td><td>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">열기</a>` : '미등록'}</td><td>${editButton(s.name)}</td></tr>`).join(''); bindEditButtons(); }
 function recordPrediction() {
   const school = schools.find(s => s.name === $('preferredSchool').value); if (!school) return;
-  const [label] = judgement(school); predictions.push({student:`${$('grade').value}학년 ${$('classNo').value}반 ${$('studentNo').value}번`,score:studentScore().toFixed(1),school:school.name,result:label,at:new Date().toLocaleString('ko-KR')}); saveStats();
+  const info=currentStudentInfo(),[label] = judgement(school); predictions.push({student:`${info.grade}학년 ${info.classNo}반 ${info.studentNo}번 ${info.name}`,studentName:info.name,grade:info.grade,classNo:info.classNo,studentNo:info.studentNo,score:studentScore().toFixed(1),school:school.name,result:label,at:new Date().toLocaleString('ko-KR')}); saveStats();
 }
 function renderStats() {
   const count = label => predictions.filter(x => x.result === label).length;

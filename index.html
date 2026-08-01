@@ -33,10 +33,12 @@
           <label>학년<select id="grade"></select></label>
           <label>반<select id="classNo"></select></label>
           <label>번호<select id="studentNo"></select></label>
+          <label>이름<input id="studentName" type="text" maxlength="20" autocomplete="name" placeholder="학생 이름"></label>
           <label>미인정 결석일수<input id="attendance" type="number" min="0" step="1" value="0" placeholder="결석이 없으면 0"></label>
           <label>봉사시간<input id="volunteer" type="number" min="0" step="0.5" value="30" placeholder="30시간 이상 만점"></label>
           <label>지망 학교<select id="preferredSchool"></select></label>
         </div>
+        <div class="actions"><button id="clearStudentInfo" type="button" class="secondary">내 정보 초기화</button></div>
       </section>
       <section class="panel">
         <h2>과목별 성적</h2>
@@ -114,7 +116,7 @@
   <dialog id="passwordDialog"><form method="dialog" class="password-box"><h2>학교별 입학요강 입력</h2><p>교사용 비밀번호를 입력하세요.</p><label>비밀번호<input id="managePassword" type="password" inputmode="numeric" autocomplete="off"></label><p id="passwordError" class="error" hidden>비밀번호가 맞지 않습니다.</p><div class="actions"><button id="passwordSubmit" type="button">확인</button><button value="cancel" class="secondary">취소</button></div></form></dialog>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="assets/app.js?v=20260801-stability1"></script>
+  <script src="assets/app.js?v=20260801-student-name1"></script>
   <script src="assets/admission-criteria.js?v=20260801-stability1"></script>
 </body>
 </html>
