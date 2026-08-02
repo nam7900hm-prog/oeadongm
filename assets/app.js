@@ -9,7 +9,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const regionOf = name => /경주|신라|삼성생활|모빌리티|국제통상|반도체|효청|기계금속/.test(name) ? '경주·포항' : /구미|금오|김천|과학기술|경북생활/.test(name) ? '구미·김천' : '기타';
 const STORAGE_KEY = 'odong-admission-project-v1';
 const STUDENT_INFO_KEY = 'odong-student-info-v1';
-let schools = loadSchools();
+let schools = mergeCriteriaSchools(loadSchools());
 let predictions = JSON.parse(localStorage.getItem('odong-admission-predictions-v1') || '[]');
 let seniorAdmissions = JSON.parse(localStorage.getItem('odong-admission-seniors-v1') || '[]');
 let managementUnlocked = false;
@@ -20,6 +20,23 @@ function loadSchools() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
   const source = saved || SEED.map(([name,type,url]) => ({ name, type, url, region: regionOf(name) }));
   return source.map(normalize);
+}
+function mergeCriteriaSchools(source) {
+  const merged = Array.isArray(source) ? source.map(normalize) : [];
+  let changed = false;
+  try {
+    const criteria = JSON.parse(localStorage.getItem('odong-school-settings-v2') || '[]');
+    if (Array.isArray(criteria)) criteria.forEach(item => {
+      const name = String(item?.schoolName || '').trim();
+      if (!name || merged.some(school => school.name === name)) return;
+      merged.push(normalize({name, region:regionOf(name)}));
+      changed = true;
+    });
+  } catch (error) {
+    console.error('입시요강 학교목록 병합 실패', error);
+  }
+  if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  return merged;
 }
 function normalize(s) { return {name:s.name || '', type:s.type || '특성화고', url:s.url || '', region:s.region || '기타', cutoff:s.cutoff ?? '', departments:s.departments || '', academic:s.academic ?? '', attendance:s.attendance ?? '', volunteer:s.volunteer ?? '', aptitude:s.aptitude ?? '', aptitudeSkip:!!s.aptitudeSkip, interview:s.interview ?? '', interviewSkip:!!s.interviewSkip, memo:s.memo || s.teacher || ''}; }
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(schools)); }
